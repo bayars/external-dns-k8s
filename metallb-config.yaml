@@ -1,0 +1,29 @@
+# MetalLB IP address pool and L2 advertisement for kind clusters.
+#
+# Apply AFTER helmfile sync completes and MetalLB pods are Running:
+#   kubectl apply -f metallb-config.yaml
+#
+# The IP range must fall within the Docker bridge network that kind uses.
+# Find it with: docker network inspect kind | grep Subnet
+# Default is usually 172.18.0.0/16 — the pool below uses the upper end
+# of that range to avoid collisions with kind node IPs.
+#
+# Adjust addresses if your Docker network uses a different subnet.
+
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: kind-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 172.18.255.200-172.18.255.250
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: kind-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - kind-pool

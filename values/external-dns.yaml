@@ -1,37 +1,34 @@
+# Common values shared by all environments.
+# Environment-specific overrides live in values/external-dns-{env}.yaml.
+
 provider:
   name: google
 
-# Sources: watch LoadBalancer services across all namespaces
+# Watch LoadBalancer Services across all namespaces
 sources:
   - service
 
-# Restrict to your domain(s) — prevents managing records you don't own
+# Safety net — external-dns only touches records under these domains
 domainFilters:
   - safabayar.net
 
-# Policy: sync = upsert + delete orphaned records
-# Use "upsert-only" if you want external-dns to never delete records
+# sync: upsert + delete orphaned records when Services are removed
+# upsert-only: never delete (safer for shared zones)
 policy: sync
 
-# TXT record owner ID — identifies records managed by this instance
-# Must be unique per cluster to avoid conflicts if running multiple instances
-txtOwnerId: external-dns-gke
-
-# How often to reconcile
+# Reconciliation frequency
 interval: 1m
 
 logLevel: info
 logFormat: json
 
-# RBAC required to watch all namespaces
+# ClusterRole + ClusterRoleBinding to watch all namespaces
 rbac:
   create: true
 
-# Service account — annotated for Workload Identity via helmfile set block
 serviceAccount:
   create: true
   name: external-dns
-  annotations: {}
 
 resources:
   requests:

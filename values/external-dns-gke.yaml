@@ -1,0 +1,8 @@
+# GKE-specific overrides — auth via Workload Identity (no secret needed)
+# The iam.gke.io/gcp-service-account annotation is injected by the helmfile set block
+# at deploy time so the project ID stays out of version control.
+
+txtOwnerId: external-dns-gke
+
+serviceAccount:
+  annotations: {}
