@@ -1,0 +1,17 @@
+repositories:
+  - name: external-dns
+    url: https://kubernetes-sigs.github.io/external-dns/
+
+releases:
+  - name: external-dns
+    namespace: external-dns
+    createNamespace: true
+    chart: external-dns/external-dns
+    version: "1.15.0"
+    values:
+      - values/external-dns.yaml
+    set:
+      - name: google.project
+        value: {{ requiredEnv "GCP_PROJECT_ID" }}
+      - name: serviceAccount.annotations.iam\.gke\.io/gcp-service-account
+        value: external-dns@{{ requiredEnv "GCP_PROJECT_ID" }}.iam.gserviceaccount.com

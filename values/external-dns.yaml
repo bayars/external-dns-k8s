@@ -1,0 +1,42 @@
+provider:
+  name: google
+
+# Sources: watch LoadBalancer services across all namespaces
+sources:
+  - service
+
+# Restrict to your domain(s) — prevents managing records you don't own
+domainFilters:
+  - safabayar.net
+
+# Policy: sync = upsert + delete orphaned records
+# Use "upsert-only" if you want external-dns to never delete records
+policy: sync
+
+# TXT record owner ID — identifies records managed by this instance
+# Must be unique per cluster to avoid conflicts if running multiple instances
+txtOwnerId: external-dns-gke
+
+# How often to reconcile
+interval: 1m
+
+logLevel: info
+logFormat: json
+
+# RBAC required to watch all namespaces
+rbac:
+  create: true
+
+# Service account — annotated for Workload Identity via helmfile set block
+serviceAccount:
+  create: true
+  name: external-dns
+  annotations: {}
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
