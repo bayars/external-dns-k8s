@@ -1,0 +1,16 @@
+# kind-specific overrides — auth via GCP Service Account JSON key Secret
+# The Secret must be created manually before running helmfile sync:
+#
+#   kubectl create namespace external-dns
+#   kubectl create secret generic external-dns-gcp-credentials \
+#     --namespace external-dns \
+#     --from-file=credentials.json=/path/to/key.json
+
+txtOwnerId: external-dns-kind
+
+google:
+  serviceAccountSecret: external-dns-gcp-credentials
+  serviceAccountSecretKey: credentials.json
+
+serviceAccount:
+  annotations: {}

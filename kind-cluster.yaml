@@ -1,0 +1,9 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+# MetalLB operates at L2 inside the Docker network kind creates.
+# No CNI changes are needed — the default kindnet CNI works fine with MetalLB.
+networking:
+  disableDefaultCNI: false
