@@ -1,0 +1,113 @@
+# ============================================================
+# Gateway Lab — SSH Config
+# Cluster : gateway-lab (kind)
+# Gateway : gateway.safabayar.net → 172.18.255.200 (MetalLB)
+# Devices : srl1, srl2 (SR Linux, ClusterIP — reachable only
+#           through the gateway's direct-tcpip forwarding)
+#
+# How routing works
+# ─────────────────
+# Two distinct SSH channel types are used:
+#
+#   session  (shell/exec) — the bastion interactive mode.
+#     Client connects to the gateway. The gateway shows the
+#     "bastion> " prompt and routes by FQDN via device lookup.
+#     Requires username + password for the target device.
+#
+#   direct-tcpip — used by ProxyJump and ProxyCommand -W.
+#     Client asks the gateway to open a raw TCP tunnel to an
+#     address. The gateway pod resolves that address via the
+#     cluster's CoreDNS, so Kubernetes service FQDNs work
+#     (e.g. srl1.default.svc.cluster.local).
+#     The client then runs a full SSH handshake through the
+#     tunnel directly with the device — no bastion prompt.
+#
+# This means HostName for device entries MUST be the
+# Kubernetes internal service name, not the .safabayar.net
+# FQDN (which does not resolve inside the cluster).
+# ============================================================
+
+# ── Shared defaults for all lab hosts ───────────────────────
+Host *.safabayar.net srl1 srl2 gateway gw
+    ServerAliveInterval  30
+    ServerAliveCountMax  3
+    ConnectTimeout       10
+
+# ── Gateway bastion (interactive) ───────────────────────────
+# Usage:
+#   ssh gateway
+#   bastion> ssh srl1.safabayar.net
+#   bastion> list
+#
+# Host key fingerprint (ED25519):
+#   SHA256:3Ops5VRuqBhXXpPRKLiOqQKO15toh0rDlMt6SSmAwso
+Host gateway gw gateway.safabayar.net
+    HostName             gateway.safabayar.net
+    User                 user
+    Port                 22
+    IdentityFile         ~/.ssh/gateway-client-key
+    # Host key is pinned — no interactive prompt
+    StrictHostKeyChecking yes
+    UserKnownHostsFile   ~/.ssh/known_hosts
+
+# ── SR Linux nodes via ProxyJump ────────────────────────────
+# Usage:
+#   ssh srl1          → password prompt from srl1 directly
+#   ssh srl1.safabayar.net
+#
+# Flow:
+#   1. SSH opens direct-tcpip tunnel through gateway to
+#      srl1.default.svc.cluster.local:22
+#   2. SSH handshakes directly with srl1 through the tunnel
+#   3. No bastion> prompt — transparent to the user
+#
+# Default credentials for SR Linux demo: admin / NokiaSrl1!
+Host srl1 srl1.safabayar.net
+    HostName             srl1.default.svc.cluster.local
+    User                 admin
+    Port                 22
+    ProxyJump            user@gateway.safabayar.net
+    # Device host keys change on pod restart — disable checking
+    StrictHostKeyChecking no
+    UserKnownHostsFile   /dev/null
+
+Host srl2 srl2.safabayar.net
+    HostName             srl2.default.svc.cluster.local
+    User                 admin
+    Port                 22
+    ProxyJump            user@gateway.safabayar.net
+    StrictHostKeyChecking no
+    UserKnownHostsFile   /dev/null
+
+# ── ProxyCommand equivalent (explicit, same effect) ─────────
+# Uncomment to use ProxyCommand instead of ProxyJump above.
+# ProxyCommand works identically but is compatible with
+# older SSH clients that don't support ProxyJump.
+#
+# Host srl1 srl1.safabayar.net
+#     HostName             srl1.default.svc.cluster.local
+#     User                 admin
+#     Port                 22
+#     ProxyCommand         ssh -W %h:%p user@gateway.safabayar.net
+#     StrictHostKeyChecking no
+#     UserKnownHostsFile   /dev/null
+
+# ── Port tunnels (optional) ─────────────────────────────────
+# Forward gRPC and gNMI ports to localhost while connected.
+# Usage:  ssh -f -N tunnel-gateway
+#         grpcurl -plaintext localhost:50051 ...
+#         gnmic -a localhost:57400 --insecure ...
+Host tunnel-gateway
+    HostName             gateway.safabayar.net
+    User                 user
+    Port                 22
+    IdentityFile         ~/.ssh/gateway-client-key
+    StrictHostKeyChecking yes
+    UserKnownHostsFile   ~/.ssh/known_hosts
+    LocalForward         50051 127.0.0.1:50051
+    LocalForward         57400 127.0.0.1:57400
+    LocalForward         8830  127.0.0.1:830
+    ExitOnForwardFailure yes
+    # Keep tunnel alive with no session output
+    RequestTTY           no
+    RemoteCommand        sleep infinity

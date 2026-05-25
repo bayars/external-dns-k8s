@@ -1,0 +1,48 @@
+environments:
+  gke:
+    values:
+      - environments/gke.yaml
+  kind:
+    values:
+      - environments/kind.yaml
+
+---
+
+repositories:
+  - name: external-dns
+    url: https://kubernetes-sigs.github.io/external-dns/
+  - name: metallb
+    url: https://metallb.github.io/metallb
+
+releases:
+  # MetalLB — only installed in the kind environment.
+  # Provides LoadBalancer IP assignment inside the Docker network that kind uses.
+  # Skipped entirely on GKE where the cloud controller handles LoadBalancer IPs.
+  - name: metallb
+    namespace: metallb-system
+    createNamespace: true
+    chart: metallb/metallb
+    version: "0.14.9"
+    installed: {{ .Values | get "metallb.enabled" false }}
+
+  # external-dns — disabled in kind (no GCP credentials); enabled in GKE.
+  # For kind, use hosts-sync.sh to replicate what external-dns does.
+  - name: external-dns
+    namespace: external-dns
+    createNamespace: true
+    chart: external-dns/external-dns
+    version: "1.15.0"
+    installed: {{ .Values | get "externaldns.enabled" true }}
+    values:
+      - values/external-dns.yaml
+      - values/external-dns-{{ .Environment.Name }}.yaml
+    set:
+      {{- $project := env "GCP_PROJECT_ID" }}
+      {{- if $project }}
+      - name: google.project
+        value: {{ $project }}
+      {{- if eq .Environment.Name "gke" }}
+      - name: serviceAccount.annotations.iam\.gke\.io/gcp-service-account
+        value: external-dns@{{ $project }}.iam.gserviceaccount.com
+      {{- end }}
+      {{- end }}
